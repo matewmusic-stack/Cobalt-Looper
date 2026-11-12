@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cobalt Looper – Cue arm + Main Mute</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f3f5f8;--fg:#14202e;--card:#fff;--ac:#1f5fd6;--am:#d98a00;--mut:#6b7a8c;--bd:#d5dce6;--rec:#d92d36}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1419;--fg:#e4ebf3;--card:#18212a;--ac:#4f8cff;--am:#ffb02e;--mut:#8394a8;--bd:#2a3744;--rec:#ff5a62}}
+:root[data-theme="dark"]{--bg:#0e1419;--fg:#e4ebf3;--card:#18212a;--ac:#4f8cff;--am:#ffb02e;--mut:#8394a8;--bd:#2a3744;--rec:#ff5a62}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+main{max-width:680px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:20px;margin:0 0 2px}h2{font-size:12px;letter-spacing:.1em;color:var(--mut);margin:16px 0 6px}
+p.s{color:var(--mut);margin:0 0 10px;font-size:13px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px 14px;margin-bottom:10px}
+.trk{display:grid;grid-template-columns:76px 1fr;gap:12px;align-items:center}
+.sub{color:var(--mut);font-size:12.5px}.st{font-weight:700;font-size:12px;letter-spacing:.06em}
+button,select{font:inherit;border:1px solid var(--bd);background:var(--card);color:var(--fg);border-radius:8px;padding:8px 12px;cursor:pointer}
+button.cue{font-weight:700;width:76px;padding:12px 0}
+button.cue.armed{background:var(--am);border-color:var(--am);color:#111}
+.bar{height:8px;background:var(--bd);border-radius:4px;margin-top:6px;position:relative;overflow:hidden}
+.ph{position:absolute;top:0;bottom:0;width:3px;background:var(--ac);left:0}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.mute{display:flex;align-items:center;gap:10px;font-weight:700;padding:14px 22px;user-select:none;touch-action:manipulation}
+.lt{width:14px;height:14px;border-radius:50%;background:var(--bd)}
+.lt.on{background:var(--rec);box-shadow:0 0 8px var(--rec)}
+.lt.blink{background:var(--rec);animation:b .5s steps(2) infinite}@keyframes b{50%{opacity:.15}}
+.ctl{display:grid;grid-template-columns:90px 1fr 100px;gap:8px;align-items:center;margin:8px 0}
+.ctl label{color:var(--mut);font-size:13px}.ctl output{text-align:right;font-size:13px}.ctl select{width:100%;min-width:0}
+input[type=range]{width:100%;accent-color:var(--ac)}
+.big{font-size:17px;font-weight:700}.note{font-size:12.5px;color:var(--mut)}
+</style></head><body><main>
+<h1>Cobalt Looper <span style="color:var(--mut);font-weight:400">· Cue arm + Main Mute</span></h1>
+<p class="s">Arm tracks with Cue, then use the Cue Mute on the Main page to record and play, locked to the master tempo clock.</p>
+<div class="card row"><button id="start" class="cue" style="width:auto;padding:10px 18px">Start audio</button><span class="note" id="msg">Tap to start sound (browser requirement). Inputs are demo synths.</span></div>
+
+<h2>TRACKS PAGE</h2><div id="tracks"></div>
+
+<h2>MAIN PAGE · CUE</h2>
+<div class="card">
+  <div class="row" style="justify-content:space-between"><span class="big" id="clock">Bar 1 · Beat 1</span><span class="st" id="status">IDLE</span></div>
+  <div class="row" style="margin:12px 0 4px">
+    <button class="mute" id="mute"><span class="lt" id="lt"></span>CUE MUTE</button>
+    <button id="clr">Stop / Clear</button>
+  </div>
+  <div class="note">Tap: record (light = recording, blinking = waiting for the bar) → tap again: stop recording and play the loop → tap again: overdub. Hold 1 s (or Stop / Clear): stop and clear.</div>
+  <div class="ctl"><label>Cue Vol</label><input type=range id="wet" min=0 max=100 value=70><output id="wo"></output></div>
+  <div class="ctl"><label>Tempo</label><input type=range id="bpm" min=60 max=180 value=100><output id="bo"></output></div>
+  <div class="ctl"><label>Clock</label><select id="csrc"><option value="int">Internal</option><option value="ext">External (MIDI clock)</option></select><output id="cst">Internal</output></div>
+  <div id="extbox" style="display:none">
+   <div class="ctl"><label>Ext input</label><select id="min"><option value="sim">Test clock (simulated)</option></select><output><span class="lt" id="tick" style="display:inline-block"></span></output></div>
+   <div class="ctl" id="simbox"><label>Test BPM</label><input type=range id="sbpm" min=60 max=180 value=120><output id="sbo">120 BPM</output></div>
+   <div class="row" id="simbtn" style="margin-bottom:6px"><button id="sst">Send Start</button><button id="ssp">Send Stop</button><button id="scn">Send Continue</button></div>
+   <div class="note" id="mnote"></div>
+  </div>
+  <div class="row"><label class="note">Punch timing
+    <select id="lead"><option value="0">at next bar line</option><option value="1">1 full bar after next bar line</option></select></label>
+    <label class="note"><input type=checkbox id="met" checked> Click</label></div>
+</div>
+<div class="card note">Signal path: unarmed track → main (unchanged). Armed track → Cue insert (mix of incoming audio and its loop, set by Cue Vol) → main. Starts and stops land on bar lines of one shared sample counter, so every loop is a whole number of bars and stays aligned. Internal tempo is locked while a loop exists. With External clock the grid follows incoming MIDI clock (24 ppqn): Start restarts at bar 1, Stop holds everything, Continue resumes. Loop lengths stay fixed in samples, so a large tempo change after recording will drift.</div>
+</main>
+<script>
+const N=4,$=id=>document.getElementById(id);
+const V=[{w:0,f:55,d:1,dec:.35,p:[0,0,7,5]},{w:1,f:220,d:2,dec:.14,p:[0,3,5,7,10,12,7,3]},{w:2,f:440,d:4,dec:.07,p:[0,12,7,12,5,12,3,12]},{w:3,f:110,d:.5,dec:.6,p:[0,5,7,3]}];
+const S={ext:false,run:true,stopped:false,clkOK:false,E:0,n:0,lastT:0,lastTick:0,clk:0,bpm:100,barLen:0,startAt:-1,stopAt:-1,recording:false,mode:'',wp:0,pos:0,loopLen:0,playing:false,wet:.7,lead:0,met:true,maxLen:0};
+const T=[];let ac,sr,node;
+for(let i=0;i<N;i++){const d=document.createElement('div');d.className='card';
+ d.innerHTML=`<div class="trk"><button class="cue">CUE</button><div><b>Track ${i+1}</b> <span class="st"></span><div class="sub">Dry</div><div class="bar"><div class="ph"></div></div></div></div>`;
+ $('tracks').appendChild(d);
+ const t={v:V[i],armed:false,has:false,ph:0,li:-1,n:0,env:0,btn:d.querySelector('.cue'),st:d.querySelector('.st'),sub:d.querySelector('.sub'),pg:d.querySelector('.ph')};
+ t.btn.onclick=()=>{t.armed=!t.armed;t.btn.classList.toggle('armed',t.armed)};T.push(t)}
+const wave=(w,p)=>w==0?Math.sin(6.2832*p):w==1?4*Math.abs(p-.5)-1:w==2?(p<.5?1:-1)*.6:(2*p-1)*.7;
+function endRec(){S.recording=false;if(S.mode=='new'){S.loopLen=Math.min(S.wp,S.maxLen);if(S.loopLen){S.playing=true;S.pos=0}else T.forEach(t=>t.has=false)}}
+function applyBpm(reset){$('bo').textContent=S.bpm.toFixed(S.ext?1:0)+' BPM';if(sr){S.barLen=sr*60/S.bpm*4;S.maxLen=Math.min(Math.floor(S.barLen*8),sr*32);if(reset)S.clk=0}}
+function setTempo(){S.bpm=+$('bpm').value;applyBpm(true)}
+function proc(e){
+ const y=e.outputBuffer.getChannelData(0),bl=S.barLen,beat=bl/4,w=S.wet;
+ for(let k=0;k<y.length;k++){
+  if(!S.run){y[k]=0;continue}
+  const c=S.clk;
+  if(S.startAt>=0&&c>=S.startAt){S.startAt=-1;S.recording=true;S.mode=S.loopLen?'dub':'new';S.wp=0}
+  if(S.stopAt>=0&&c>=S.stopAt){S.stopAt=-1;endRec()}
+  const bar=Math.floor(c/bl);let m=0;
+  for(const t of T){const v=t.v,idx=Math.floor(c/(beat/v.d));
+   if(idx!==t.li){t.li=idx;t.n=v.p[(idx*3+bar*5)%v.p.length];t.env=1}
+   t.ph=(t.ph+v.f*Math.pow(2,t.n/12)/sr)%1;t.env*=t.dc;
+   const x=wave(v.w,t.ph)*t.env*.3;let o=x;
+   if(t.armed){
+    if(S.recording&&S.mode=='new'){t.buf[S.wp]=x;t.has=true}
+    if(S.playing&&t.has){const l=t.buf[S.pos];
+     if(S.recording&&S.mode=='dub')t.buf[S.pos]=Math.max(-1,Math.min(1,l+x));
+     o=x*(1-w)+l*w}
+    else if(S.playing&&S.recording&&S.mode=='dub'){t.has=true;t.buf[S.pos]=x}
+   }
+   m+=o}
+  if(S.recording&&S.mode=='new'){S.wp++;if(S.wp>=S.maxLen){S.stopAt=-1;endRec()}}
+  if(S.playing){S.pos++;if(S.pos>=S.loopLen)S.pos=0}
+  if(S.met){const b=c-Math.floor(c/beat)*beat;if(b<1200)m+=Math.sin(b*(Math.floor(c/beat)%4==0?.28:.18))*(1-b/1200)*.25}
+  y[k]=Math.tanh(m*.6);S.clk++}
+}
+$('start').onclick=async()=>{
+ if(!ac){ac=new (window.AudioContext||window.webkitAudioContext)();sr=ac.sampleRate;
+  T.forEach(t=>{t.buf=new Float32Array(sr*32);t.dc=Math.exp(-1/(sr*t.v.dec))});setTempo();
+  node=ac.createScriptProcessor(1024,1,1);node.onaudioprocess=proc;node.connect(ac.destination)}
+ await ac.resume();$('msg').textContent='Running. Arm a track with Cue, then tap CUE MUTE.'};
+const target=()=>(Math.floor((S.clk+2048)/S.barLen)+1+S.lead)*S.barLen;
+function tap(){
+ if(!ac)return $('msg').textContent='Press Start audio first.';
+ if(S.startAt>=0){S.startAt=-1;return}
+ if(S.recording){S.stopAt=S.stopAt>=0?-1:target();return}
+ if(!T.some(t=>t.armed))return $('msg').textContent='Arm at least one track with Cue first.';
+ S.startAt=target()}
+function clearAll(){if(!ac)return;S.startAt=S.stopAt=-1;S.recording=false;S.playing=false;S.loopLen=0;S.pos=0;S.wp=0;T.forEach(t=>{t.buf.fill(0);t.has=false})}
+let lp,fired=false;const mb=$('mute');
+mb.onpointerdown=()=>{fired=false;lp=setTimeout(()=>{fired=true;clearAll()},1000)};
+mb.onpointerup=()=>{clearTimeout(lp);if(!fired)tap()};mb.onpointerleave=()=>clearTimeout(lp);
+$('clr').onclick=clearAll;
+$('wet').oninput=e=>{S.wet=e.target.value/100;$('wo').textContent=`Dry ${100-e.target.value} / Wet ${e.target.value}`};$('wet').oninput({target:$('wet')});
+$('bpm').oninput=()=>{if(!(S.loopLen||S.recording||S.startAt>=0))setTempo();else $('bpm').value=S.bpm};setTempo();
+$('lead').onchange=e=>S.lead=+e.target.value;$('met').onchange=e=>S.met=e.target.checked;
+/* ---- external clock: MIDI clock = 24 pulses per quarter note ---- */
+function tickIn(ts){
+ if(!S.ext||!ac)return;
+ const now=ts||performance.now();S.lastTick=performance.now();
+ if(!S.clkOK){S.clkOK=true;S.n=0;S.E=0;S.clk=0;S.lastT=0;S.startAt=S.stopAt=-1;if(S.playing)S.pos=0}
+ if(S.lastT){const b=Math.max(30,Math.min(300,60000/((now-S.lastT)*24)));
+  if(S.n<2)S.bpm=b;else if(b>S.bpm*.5&&b<S.bpm*2)S.bpm+=(b-S.bpm)*(S.n<48?.25:.04);
+  applyBpm(false)}
+ S.lastT=now;
+ if(S.stopped)return;
+ if(S.n++>0){S.E+=S.barLen/96;S.clk+=(S.E-S.clk)*.1}   /* phase-lock the sample clock to the tick count */
+}
+function midiMsg(d,ts){const s=d[0];
+ if(s===0xF8)tickIn(ts);
+ else if(s===0xFA){S.n=0;S.E=0;S.clk=0;S.lastT=0;S.stopped=false;S.clkOK=true;S.startAt=S.stopAt=-1;if(S.playing)S.pos=0}
+ else if(s===0xFB)S.stopped=false;
+ else if(s===0xFC)S.stopped=true}
+let simT=null,simNext=0,simBpm=120,midi=null,curIn=null,mTried=false;
+function stopSim(){clearInterval(simT);simT=null}
+function simStart(){stopSim();simNext=performance.now();simT=setInterval(()=>{const n=performance.now();while(simNext<=n){tickIn(simNext);simNext+=60000/(simBpm*24)}},3)}
+async function midiInit(){try{midi=await navigator.requestMIDIAccess();midi.onstatechange=fill;fill()}catch(err){$('mnote').textContent='Web MIDI isn’t available in this page or browser. Use the test clock here, or open it in Chrome or Edge.'}}
+function fill(){const sel=$('min'),cur=sel.value;sel.length=1;if(midi)midi.inputs.forEach(i=>{const o=document.createElement('option');o.value=i.id;o.textContent=i.name;sel.appendChild(o)});if([...sel.options].some(o=>o.value===cur))sel.value=cur}
+function midiSync(){stopSim();if(curIn){curIn.onmidimessage=null;curIn=null}
+ const v=$('min').value,sim=v==='sim';$('simbox').style.display=$('simbtn').style.display=sim?'':'none';
+ if(sim)simStart();else if(midi){curIn=midi.inputs.get(v);if(curIn)curIn.onmidimessage=e=>midiMsg(e.data,e.timeStamp)}}
+$('min').onchange=()=>{S.clkOK=false;S.lastT=0;midiSync()};
+$('sbpm').oninput=e=>{simBpm=+e.target.value;$('sbo').textContent=simBpm+' BPM'};
+$('sst').onclick=()=>midiMsg([0xFA],performance.now());$('ssp').onclick=()=>midiMsg([0xFC]);$('scn').onclick=()=>midiMsg([0xFB]);
+$('csrc').onchange=e=>{const ext=e.target.value==='ext';
+ if(ext&&!ac){e.target.value='int';$('msg').textContent='Press Start audio first.';return}
+ S.ext=ext;$('extbox').style.display=ext?'':'none';
+ if(ext){S.clkOK=false;S.stopped=false;S.run=false;S.lastT=0;S.n=0;midiSync();if(!mTried){mTried=true;midiInit().then(midiSync)}}
+ else{stopSim();if(curIn){curIn.onmidimessage=null;curIn=null}S.run=true;S.stopped=false;$('bpm').value=Math.max(60,Math.min(180,Math.round(S.bpm)));S.bpm=+$('bpm').value;applyBpm(false)}};
+setInterval(()=>{if(S.ext){if(performance.now()-S.lastTick>600)S.clkOK=false;S.run=S.clkOK&&!S.stopped}else S.run=true},50);
+(function ui(){
+ if(sr){const bl=S.barLen,b=bl/4;$('clock').textContent=`Bar ${Math.floor(S.clk/bl)+1} · Beat ${Math.floor((S.clk%bl)/b)+1}`;
+  $('lt').className='lt'+(S.recording?' on':S.startAt>=0?' blink':'');
+  let s='IDLE';if(S.startAt>=0)s=S.loopLen?'OVERDUB IN…':'REC IN…';else if(S.recording)s=S.stopAt>=0?'STOPPING AT BAR…':(S.mode=='new'?'RECORDING':'OVERDUB');
+  else if(S.playing)s='PLAYING · '+Math.round(S.loopLen/bl)+' BAR'+(S.loopLen/bl>1?'S':'');$('status').textContent=s;
+  $('bpm').disabled=!!(S.ext||S.loopLen||S.recording||S.startAt>=0);
+  $('cst').textContent=!S.ext?'Internal':!S.clkOK?'No clock…':S.stopped?'Stopped':S.bpm.toFixed(1)+' BPM';
+  $('tick').className='lt'+(S.ext&&S.clkOK&&!S.stopped&&S.n%24<4?' on':'');
+  T.forEach(t=>{const l=t.armed&&t.has&&S.playing;t.st.textContent=t.armed?(t.has?'· ARMED · LOOP':'· ARMED'):'';
+   t.sub.textContent=l?`Cue out: ${Math.round((1-S.wet)*100)}% incoming / ${Math.round(S.wet*100)}% loop`:(t.armed?'Armed, input to main':'Dry, input to main');
+   t.pg.style.left=l?(S.pos/S.loopLen*100)+'%':'0'})}
+ requestAnimationFrame(ui)})();
+</script></body></html>
